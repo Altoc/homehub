@@ -15,9 +15,9 @@ def userSelect():
 db.cursor.execute("SELECT name FROM users")
 
 for val in db.cursor.fetchall():
-    str = StringVar()
-    str.set(val)
-    userButton = Button(root, textvariable = str, command = userSelect)
+    myStr = StringVar()
+    myStr.set(val)
+    userButton = Button(root, textvariable = myStr, command = userSelect)
     userButton.place(x = 50, y = 50)
     userButton.pack()
 
