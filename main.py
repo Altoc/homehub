@@ -17,10 +17,12 @@ class FR_login:
         self.attemptedPassword = str()
         self.shownAttemptedPassw_var = StringVar()
         self.usernameSelected = str()
-#        self.root.attributes('-fullscreen', True)
+        self.root.attributes('-fullscreen', True)
         self.usernameFrame.pack(side = TOP)
         self.passwFrame.pack()
         self.keypadFrame.pack(side = BOTTOM)
+        greeting = Label(self.usernameFrame, text="Please Login")
+        greeting.grid()
         db.cursor.execute("SELECT name FROM users")
         for val in db.cursor.fetchall():
             dbUsername = StringVar()
@@ -77,17 +79,36 @@ class FR_login:
 
 class FR_grocery:
     def __init__(self, username):
+        global db
         self.grocRoot = tkinter.Tk()
         self.grocRoot.title("Groceries")
-#        self.grocRoot.attributes('-fullscreen', True)
+        self.grocRoot.attributes('-fullscreen', True)
+        self.username = username
+        greeting = Label(self.grocRoot, text = "{}'s Grocery List".format(self.username))
+        greeting.grid()
+        db.cursor.execute("SELECT id FROM users WHERE name=%s", (self.username))
+        dbReturn = db.cursor.fetchall()
+        for val in dbReturn:
+            self.userID = val[0]
+        print("User ID: {}".format(self.userID))
+        self.populateGroceryList()
 
         self.grocRoot.mainloop()
+
+    def populateGroceryList(self):
+        global db
+        db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
+        for val in db.cursor.fetchall():
+            dbGroceryItem = StringVar()
+            dbGroceryItem.set(val[0])
+            groceryItem = Label(self.grocRoot, textvariable=dbGroceryItem)
+            groceryItem.grid()
 
 class FR_home:
     def __init__(self, username):
         self.homeRoot = tkinter.Tk()
         self.homeRoot.title("Home")
-#        self.homeRoot.attributes('-fullscreen', True)
+        self.homeRoot.attributes('-fullscreen', True)
         self.username = username
         greeting = Label(self.homeRoot, text = "Welcome to HomeHub6270, {}".format(username))
         greeting.grid()
