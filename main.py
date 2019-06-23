@@ -1,24 +1,28 @@
+#TODO: Set subject of grocery emails
 import tkinter
 from tkinter import *
 from tkinter import messagebox
 import homehubdb
 import hh_grocery
+import hh_email
 
 #GLOBALS
 db = homehubdb.Db_manager()
+em = hh_email.EmailManager()
+root = tkinter.Tk()
+root.attributes('-fullscreen', True)
 
 class FR_login:
     def __init__(self):
         global db
-        self.root = tkinter.Tk()
-        self.root.title("Login")
-        self.usernameFrame = Frame(self.root)
-        self.passwFrame = Frame(self.root)
-        self.keypadFrame = Frame(self.root)
+        global root
+        root.title("Login")
+        self.usernameFrame = Frame(root)
+        self.passwFrame = Frame(root)
+        self.keypadFrame = Frame(root)
         self.attemptedPassword = str()
         self.shownAttemptedPassw_var = StringVar()
         self.usernameSelected = str()
-        self.root.attributes('-fullscreen', True)
         self.usernameFrame.pack(side = TOP)
         self.passwFrame.pack()
         self.keypadFrame.pack(side = BOTTOM)
@@ -33,9 +37,9 @@ class FR_login:
         shownAttemptedPassw = Label(self.passwFrame, textvariable = self.shownAttemptedPassw_var)
         self.shownAttemptedPassw_var.set(self.attemptedPassword)
         shownAttemptedPassw.grid()
-        self.root.mainloop()
 
     def userSelect(self, usernameClicked):
+        global root
         self.usernameSelected = usernameClicked.get()
         numCounter = 1
         for i in range(3):
@@ -45,23 +49,21 @@ class FR_login:
                 passwordNumpad.config(height=4, width=4)
                 numCounter = numCounter + 1
                 passwordNumpad.grid(row=i, column=j)
-                self.root.update()
+                root.update()
         zeroButton = Button(self.keypadFrame, text="0", command=lambda : self.userAuthentication("0"))
         zeroButton.config(height=4, width=4)
         zeroButton.grid(row=4, column=1)
 
     def userAuthentication(self, numToAppend):
         global db
+        global root
         global mainApp
         if len(self.attemptedPassword) < 3:
-            #print("Entering Num: {}".format(numToAppend))
             self.attemptedPassword += numToAppend
             self.shownAttemptedPassw_var.set(self.attemptedPassword)
         elif len(self.attemptedPassword) < 4:
-            #print("Entering Num: {}".format(numToAppend))
             self.attemptedPassword += numToAppend
             self.shownAttemptedPassw_var.set(self.attemptedPassword)
-            #print("Checking DB for pass for {}".format(usernameSelected))
             db.cursor.execute("SELECT password FROM users WHERE name=%s",  (self.usernameSelected))
             dbReturn = db.cursor.fetchall()
             for val in dbReturn:
@@ -71,21 +73,49 @@ class FR_login:
             print("Here is what you entered: %s" % (self.attemptedPassword))
             if passW == self.attemptedPassword:
                 print("password match!")
-                self.root.destroy()	#Destroy login window
-                mainApp = FR_home(self.usernameSelected)	#Create Home window
+                for element in root.winfo_children():
+                    element.destroy()
+                mainApp = FR_home(self.usernameSelected)
             else:
                 print("passwords did not match")
                 self.shownAttemptedPassw_var.set("Wrong... Try Again")
             self.attemptedPassword = str()
 
+class FR_home:
+    def __init__(self, username):
+        global root
+        self.homeRoot = Frame(root)
+        self.homeRoot.grid()
+        root.title("Home")
+        self.username = username
+        greeting = Label(self.homeRoot, text = "Welcome to HomeHub6270, {}".format(self.username))
+        greeting.grid()
+        groceryButton = Button(self.homeRoot, text="Grocery List", command=lambda : self.grocery())
+        groceryButton.grid()
+        self.backToLogin = Button(self.homeRoot, text="LOGOUT", command=self.logout)
+        self.backToLogin.grid()
+
+    def logout(self):
+        global root
+        for element in root.winfo_children():
+            element.destroy()
+        mainApp = FR_login()
+
+    def grocery(self):
+        global mainApp
+        global root
+        for element in root.winfo_children():
+            element.destroy()
+        mainApp = FR_grocery(self.username)
+
 class FR_grocery:
     def __init__(self, username):
         global db
-        self.grocRoot = tkinter.Tk()
-        self.grocRoot.title("Groceries")
-        self.grocRoot.attributes('-fullscreen', True)
-        self.listFrame = Frame(self.grocRoot)
-        self.entryFrame = Frame(self.grocRoot)
+        global root
+        self.grocRoot = Frame(root)
+        root.title("Groceries")
+        self.listFrame = Frame(root)
+        self.entryFrame = Frame(root)
         self.grocRoot.grid()
         self.listFrame.grid()
         self.entryFrame.grid()
@@ -100,8 +130,6 @@ class FR_grocery:
         print("User ID: {}".format(self.userID))
         self.populateGroceryList()
         self.populateUI()
-
-        self.grocRoot.mainloop()
 
     def populateGroceryList(self):
         global db
@@ -123,6 +151,8 @@ class FR_grocery:
         self.entry_button_1.grid()
         self.email_list_button = Button(self.entryFrame, text="Email List", command = self.emailList)
         self.email_list_button.grid()
+        self.back_button = Button(self.entryFrame, text="Back To Home", command = self.backToHome)
+        self.back_button.grid()
 
     def addGroceryItem(self):
         global db
@@ -137,29 +167,26 @@ class FR_grocery:
 
     def emailList(self):
         global db
-        groceryListStr = str()
+        global em
+        emailList = []
         db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
         for val in db.cursor.fetchall():
-            groceryListStr += val[0]
-        print(groceryListStr)
-        #send email to email in user's DB with that string as the body of the message
+            emailList.append(val[0])
+        emailRecip = str()
+        db.cursor.execute("SELECT email FROM users WHERE id=%s", (self.userID))
+        for val in db.cursor.fetchall():
+            emailRecip = val[0]
+        em.setMsg(emailList)
+        em.sendMsg(emailRecip)
 
-class FR_home:
-    def __init__(self, username):
-        self.homeRoot = tkinter.Tk()
-        self.homeRoot.title("Home")
-        self.homeRoot.attributes('-fullscreen', True)
-        self.username = username
-        greeting = Label(self.homeRoot, text = "Welcome to HomeHub6270, {}".format(username))
-        greeting.grid()
-        groceryButton = Button(self.homeRoot, text="Grocery List", command=lambda : self.grocery())
-        groceryButton.grid()
-        self.homeRoot.mainloop()
-
-    def grocery(self):
+    def backToHome(self):
         global mainApp
-        self.homeRoot.destroy()
-        mainApp = FR_grocery(self.username)
+        global root
+        for element in root.winfo_children():
+            element.destroy()
+        mainApp = FR_home(self.username)
 
 # MAIN
 mainApp = FR_login()
+
+root.mainloop()
