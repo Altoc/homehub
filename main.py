@@ -2,6 +2,7 @@ import tkinter
 from tkinter import *
 from tkinter import messagebox
 import homehubdb
+import hh_grocery
 
 #GLOBALS
 db = homehubdb.Db_manager()
@@ -40,7 +41,7 @@ class FR_login:
         for i in range(3):
             for j in range(3):
                 numCounterStr = str(numCounter)
-                passwordNumpad = Button(self.keypadFrame, text=numCounterStr, command=lambda numCounterStr=numCounterStr: self.userAuthentication(numCounterStr)) #passwAttempt("0")) #making this a lambda allows passing of params
+                passwordNumpad = Button(self.keypadFrame, text=numCounterStr, command=lambda numCounterStr=numCounterStr: self.userAuthentication(numCounterStr)) #making this a lambda allows passing of params
                 passwordNumpad.config(height=4, width=4)
                 numCounter = numCounter + 1
                 passwordNumpad.grid(row=i, column=j)
@@ -83,6 +84,12 @@ class FR_grocery:
         self.grocRoot = tkinter.Tk()
         self.grocRoot.title("Groceries")
         self.grocRoot.attributes('-fullscreen', True)
+        self.listFrame = Frame(self.grocRoot)
+        self.entryFrame = Frame(self.grocRoot)
+        self.grocRoot.grid()
+        self.listFrame.grid()
+        self.entryFrame.grid()
+
         self.username = username
         greeting = Label(self.grocRoot, text = "{}'s Grocery List".format(self.username))
         greeting.grid()
@@ -92,17 +99,50 @@ class FR_grocery:
             self.userID = val[0]
         print("User ID: {}".format(self.userID))
         self.populateGroceryList()
+        self.populateUI()
 
         self.grocRoot.mainloop()
 
     def populateGroceryList(self):
         global db
+        #clear list frame
+        for element in self.listFrame.winfo_children():
+            element.destroy()
         db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
         for val in db.cursor.fetchall():
             dbGroceryItem = StringVar()
             dbGroceryItem.set(val[0])
-            groceryItem = Label(self.grocRoot, textvariable=dbGroceryItem)
+            groceryItem = Label(self.listFrame, textvariable=dbGroceryItem)
             groceryItem.grid()
+
+    def populateUI(self):
+        global db
+        self.entry_1 = Entry(self.entryFrame)
+        self.entry_1.grid()
+        self.entry_button_1 = Button(self.entryFrame, text="Add Item", command = self.addGroceryItem)
+        self.entry_button_1.grid()
+        self.email_list_button = Button(self.entryFrame, text="Email List", command = self.emailList)
+        self.email_list_button.grid()
+
+    def addGroceryItem(self):
+        global db
+        print("Adding {} to list...".format(self.entry_1.get()))
+        try:
+            db.cursor.execute("INSERT INTO GroceryList(id,item) VALUES(%s, %s)", (self.userID, self.entry_1.get()))
+            db.hubdb.commit()
+            self.entry_1.delete(0, 'end')
+            self.populateGroceryList()
+        except MySQLError as e:
+            print('Got error {!r}, errno is {}'.format(e, e.args[0]))
+
+    def emailList(self):
+        global db
+        groceryListStr = str()
+        db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
+        for val in db.cursor.fetchall():
+            groceryListStr += val[0]
+        print(groceryListStr)
+        #send email to email in user's DB with that string as the body of the message
 
 class FR_home:
     def __init__(self, username):
