@@ -3,7 +3,6 @@ import tkinter
 from tkinter import *
 from tkinter import messagebox
 import homehubdb
-import hh_grocery
 import hh_email
 
 #GLOBALS
@@ -149,6 +148,8 @@ class FR_grocery:
         self.entry_1.grid()
         self.entry_button_1 = Button(self.entryFrame, text="Add Item", command = self.addGroceryItem)
         self.entry_button_1.grid()
+        self.delete_list_button = Button(self.entryFrame, text="Delete List", command = self.deleteGroceryList )
+        self.delete_list_button.grid()
         self.email_list_button = Button(self.entryFrame, text="Email List", command = self.emailList)
         self.email_list_button.grid()
         self.back_button = Button(self.entryFrame, text="Back To Home", command = self.backToHome)
@@ -164,6 +165,11 @@ class FR_grocery:
             self.populateGroceryList()
         except MySQLError as e:
             print('Got error {!r}, errno is {}'.format(e, e.args[0]))
+
+    def deleteGroceryList(self):
+        global db
+        db.cursor.execute("DELETE FROM GroceryList WHERE id=%s", (self.userID))
+        self.populateGroceryList()
 
     def emailList(self):
         global db
@@ -188,5 +194,4 @@ class FR_grocery:
 
 # MAIN
 mainApp = FR_login()
-
 root.mainloop()

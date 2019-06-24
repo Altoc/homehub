@@ -6,8 +6,8 @@ class Db_manager:
     def __init__(self):
         self.hubdb = pymysql.connect(
             "localhost",
-            "homehubuser",
-            "homehubpass",
+            "root",
+            "",
             "homehubdb"
         )
         self.cursor = self.hubdb.cursor()
