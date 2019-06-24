@@ -159,13 +159,13 @@ class FR_grocery:
         self.grocRoot.grid()
         self.listFrame.grid()
         self.entryFrame.grid()
+        self.username = username
         db = homehubdb.Db_manager()
         db.cursor.execute("SELECT id FROM users WHERE name=%s", (self.username))
         dbReturn = db.cursor.fetchall()
         for val in dbReturn:
             self.userID = val[0]
         db.disconnect()
-        self.username = username
         greeting = Label(self.grocRoot, text = "{}'s Grocery List".format(self.username))
         greeting.grid()
         self.populateGroceryList()
