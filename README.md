@@ -1,7 +1,13 @@
 # homehub
-Home Hub is a home life management system I am currently working on
+Home Hub is a home life management system that I am currently developing
+Management features so far include:
+- grocery list management
 
 Dependencies:
+
+ubuntu 16
+
+mysql
 
 python3
 
