@@ -1,4 +1,4 @@
-#TODO: Set subject of grocery emails
+#TODO: Set subject of grocery emails | END CONNECTIONS TO DB AND ONLY CONNECT DB WHEN USING IT
 import tkinter
 from tkinter import *
 from tkinter import messagebox
@@ -6,14 +6,12 @@ import homehubdb
 import hh_email
 
 #GLOBALS
-db = homehubdb.Db_manager()
 em = hh_email.EmailManager()
 root = tkinter.Tk()
 root.attributes('-fullscreen', True)
 
 class FR_login:
     def __init__(self):
-        global db
         global root
         root.title("Login")
         self.usernameFrame = Frame(root)
@@ -27,12 +25,14 @@ class FR_login:
         self.keypadFrame.pack(side = BOTTOM)
         greeting = Label(self.usernameFrame, text="Please Login")
         greeting.grid()
+        db = homehubdb.Db_manager()
         db.cursor.execute("SELECT name FROM users")
         for val in db.cursor.fetchall():
             dbUsername = StringVar()
             dbUsername.set(val[0])
             userButton = Button(self.usernameFrame, textvariable = dbUsername, command=lambda dbUsername=dbUsername: self.userSelect(dbUsername))
             userButton.grid()
+        db.disconnect()
         shownAttemptedPassw = Label(self.passwFrame, textvariable = self.shownAttemptedPassw_var)
         self.shownAttemptedPassw_var.set(self.attemptedPassword)
         shownAttemptedPassw.grid()
@@ -54,7 +54,6 @@ class FR_login:
         zeroButton.grid(row=4, column=1)
 
     def userAuthentication(self, numToAppend):
-        global db
         global root
         global mainApp
         if len(self.attemptedPassword) < 3:
@@ -63,13 +62,12 @@ class FR_login:
         elif len(self.attemptedPassword) < 4:
             self.attemptedPassword += numToAppend
             self.shownAttemptedPassw_var.set(self.attemptedPassword)
+            db = homehubdb.Db_manager()
             db.cursor.execute("SELECT password FROM users WHERE name=%s",  (self.usernameSelected))
             dbReturn = db.cursor.fetchall()
             for val in dbReturn:
                 passW = val[0]
-            print("Here is %s 's password: " % (self.usernameSelected))
-            print(passW)
-            print("Here is what you entered: %s" % (self.attemptedPassword))
+            db.disconnect()
             if passW == self.attemptedPassword:
                 print("password match!")
                 for element in root.winfo_children():
@@ -109,7 +107,6 @@ class FR_home:
 
 class FR_grocery:
     def __init__(self, username):
-        global db
         global root
         self.grocRoot = Frame(root)
         root.title("Groceries")
@@ -122,28 +119,28 @@ class FR_grocery:
         self.username = username
         greeting = Label(self.grocRoot, text = "{}'s Grocery List".format(self.username))
         greeting.grid()
+        db = homehubdb.Db_manager()
         db.cursor.execute("SELECT id FROM users WHERE name=%s", (self.username))
         dbReturn = db.cursor.fetchall()
         for val in dbReturn:
             self.userID = val[0]
-        print("User ID: {}".format(self.userID))
+        db.disconnect()
         self.populateGroceryList()
         self.populateUI()
 
     def populateGroceryList(self):
-        global db
-        #clear list frame
         for element in self.listFrame.winfo_children():
             element.destroy()
+        db = homehubdb.Db_manager()
         db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
         for val in db.cursor.fetchall():
             dbGroceryItem = StringVar()
             dbGroceryItem.set(val[0])
             groceryItem = Label(self.listFrame, textvariable=dbGroceryItem)
             groceryItem.grid()
+        db.disconnect()
 
     def populateUI(self):
-        global db
         self.entry_1 = Entry(self.entryFrame)
         self.entry_1.grid()
         self.entry_button_1 = Button(self.entryFrame, text="Add Item", command = self.addGroceryItem)
@@ -156,25 +153,24 @@ class FR_grocery:
         self.back_button.grid()
 
     def addGroceryItem(self):
-        global db
         print("Adding {} to list...".format(self.entry_1.get()))
-        try:
-            db.cursor.execute("INSERT INTO GroceryList(id,item) VALUES(%s, %s)", (self.userID, self.entry_1.get()))
-            db.hubdb.commit()
-            self.entry_1.delete(0, 'end')
-            self.populateGroceryList()
-        except MySQLError as e:
-            print('Got error {!r}, errno is {}'.format(e, e.args[0]))
+        db = homehubdb.Db_manager()
+        db.cursor.execute("INSERT INTO GroceryList(id,item) VALUES(%s, %s)", (self.userID, self.entry_1.get()))
+        db.hubdb.commit()
+        self.entry_1.delete(0, 'end')
+        self.populateGroceryList()
+        db.disconnect()
 
     def deleteGroceryList(self):
-        global db
+        db = homehubdb.Db_manager()
         db.cursor.execute("DELETE FROM GroceryList WHERE id=%s", (self.userID))
         self.populateGroceryList()
+        db.disconnect()
 
     def emailList(self):
-        global db
         global em
         emailList = []
+        db = homehubdb.Db_manager()
         db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
         for val in db.cursor.fetchall():
             emailList.append(val[0])
@@ -184,6 +180,7 @@ class FR_grocery:
             emailRecip = val[0]
         em.setMsg(emailList)
         em.sendMsg(emailRecip)
+        db.disconnect()
 
     def backToHome(self):
         global mainApp
