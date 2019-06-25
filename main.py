@@ -206,6 +206,7 @@ class FR_grocery:
     def deleteGroceryList(self):
         db = homehubdb.Db_manager()
         db.cursor.execute("DELETE FROM GroceryList WHERE id=%s", (self.userID))
+        db.hubdb.commit()
         self.populateGroceryList()
         db.disconnect()
 
