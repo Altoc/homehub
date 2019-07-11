@@ -11,11 +11,11 @@ class Db_manager:
             "homehubdb"
         )
         self.cursor = self.hubdb.cursor()
-        print("db connected")
+        #print("db connected")
 
     def disconnect(self):
         if(self.hubdb):
             self.hubdb.close()
-            print("db disconnected")
+            #print("db disconnected")
         else:
             print("db was not disconnected")

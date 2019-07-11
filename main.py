@@ -188,39 +188,51 @@ class FR_grocery:
             element.destroy()
         db = homehubdb.Db_manager()
         db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
+        cntr = 0;
         for val in db.cursor.fetchall():
             dbGroceryItem = StringVar()
             dbGroceryItem.set(val[0])
             groceryItem = Label(self.listFrame, textvariable=dbGroceryItem)
-            groceryItem.grid()
+            groceryItem.grid(row=cntr,column=0)
+            deleteItemButton = Button(self.listFrame, text="Delete", 
+                command=lambda itemToDel=dbGroceryItem.get(): self.deleteGroceryItem(itemToDel))
+            deleteItemButton.grid(row=cntr,column=1)
+            cntr = cntr + 1;
         db.disconnect()
 
     def populateUI(self):
         self.entry_1 = Entry(self.entryFrame)
-        self.entry_1.grid()
+        self.entry_1.grid(row=0, column=0)
         self.entry_button_1 = Button(self.entryFrame, text="Add Item", command = self.addGroceryItem)
-        self.entry_button_1.grid()
-        self.delete_list_button = Button(self.entryFrame, text="Delete List", command = self.deleteGroceryList )
-        self.delete_list_button.grid()
+        self.entry_button_1.grid(row=0,column=1)
+        self.delete_list_button = Button(self.entryFrame, text="Delete List", command = self.deleteGroceryList)
+        self.delete_list_button.grid(row=1,column=0)
         self.email_list_button = Button(self.entryFrame, text="Email List", command = self.emailList)
-        self.email_list_button.grid()
+        self.email_list_button.grid(row=2,column=0)
         self.back_button = Button(self.entryFrame, text="Back To Home", command = self.backToHome)
-        self.back_button.grid()
+        self.back_button.grid(row=3,column=0)
 
     def addGroceryItem(self):
         db = homehubdb.Db_manager()
         db.cursor.execute("INSERT INTO GroceryList(id,item) VALUES(%s, %s)", (self.userID, self.entry_1.get()))
         db.hubdb.commit()
+        db.disconnect()
         self.entry_1.delete(0, 'end')
         self.populateGroceryList()
+
+    def deleteGroceryItem(self, itemToDel):
+        db = homehubdb.Db_manager()
+        db.cursor.execute("DELETE FROM GroceryList WHERE item=%s", (itemToDel))
+        db.hubdb.commit()
         db.disconnect()
+        self.populateGroceryList()
 
     def deleteGroceryList(self):
         db = homehubdb.Db_manager()
         db.cursor.execute("DELETE FROM GroceryList WHERE id=%s", (self.userID))
         db.hubdb.commit()
-        self.populateGroceryList()
         db.disconnect()
+        self.populateGroceryList()
 
     def emailList(self):
         global em
