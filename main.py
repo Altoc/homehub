@@ -1,4 +1,6 @@
-#TODO: Set subject of emails | limit input boxes for password settings
+#TODO: Set subject of emails
+#TODO: limit input boxes for password settings
+#TODO: Make Pizza Purchase Tracker (have it ask each person who bought pizza last to confirm)
 import tkinter
 from tkinter import *
 from tkinter import messagebox
@@ -24,14 +26,21 @@ class FR_login:
         self.passwFrame.pack()
         self.keypadFrame.pack(side = BOTTOM)
         greeting = Label(self.usernameFrame, text="Please Login")
-        greeting.grid()
+        greeting.grid(row=0, column=0)
         db = homehubdb.Db_manager()
-        db.cursor.execute("SELECT name FROM users")
+        db.cursor.execute("SELECT name, id FROM users")
+        loginUserCounter = 1
         for val in db.cursor.fetchall():
             dbUsername = StringVar()
             dbUsername.set(val[0])
             userButton = Button(self.usernameFrame, textvariable = dbUsername, command=lambda dbUsername=dbUsername: self.userSelect(dbUsername))
-            userButton.grid()
+            userButton.grid(row=loginUserCounter, column=0)
+            # V cursor.execute returns an int of affected rows V
+            unreadCheck = db.cursor.execute("SELECT noteID, unread FROM userNotes WHERE userID=%s AND unread=1", (val[1]))
+            if(unreadCheck > 0):
+                unreadMessages = Label(self.usernameFrame, text="*NEW NOTES*")
+                unreadMessages.grid(row=loginUserCounter, column=1)
+            loginUserCounter = loginUserCounter + 1
         db.disconnect()
         shownAttemptedPassw = Label(self.passwFrame, textvariable = self.shownAttemptedPassw_var)
         self.shownAttemptedPassw_var.set(self.attemptedPassword)
@@ -68,7 +77,7 @@ class FR_login:
             for val in dbReturn:
                 passW = val[0]
             db.disconnect()
-            if passW == self.attemptedPassword:
+            if passW == int(self.attemptedPassword):
                 for element in root.winfo_children():
                     element.destroy()
                 mainApp = FR_home(self.usernameSelected)
@@ -124,27 +133,43 @@ class FR_home:
 
     def addNote(self):
         db = homehubdb.Db_manager()
-        db.cursor.execute("INSERT INTO notes(message,date,name) VALUES(%s, NOW(), %s)", (self.notesEntry.get(), self.username))
+        db.cursor.execute("INSERT INTO notes(message,name,dateCreated) VALUES(%s, %s, NOW())", (self.notesEntry.get(), self.username))
+        db.cursor.execute("SET @note_id=LAST_INSERT_ID()")
+        db.cursor.execute("SELECT id FROM users")
+        for val in db.cursor.fetchall():
+            db.cursor.execute("INSERT INTO userNotes(userID, noteID) VALUES(%s, @note_id)", (val[0]))
         db.hubdb.commit()
         self.notesEntry.delete(0, 'end')
         db.disconnect()
         self.notesPopup.destroy()
         self.populateNotes()
 
+    #also clears database of expired notes
     def populateNotes(self):
         for element in self.notesFrame.winfo_children():
             element.destroy()
         db = homehubdb.Db_manager()
-        db.cursor.execute("SELECT name, message FROM notes WHERE date BETWEEN NOW() - INTERVAL 7 DAY AND NOW()")
+        db.cursor.execute("SELECT id FROM notes WHERE dateCreated BETWEEN NOW() - INTERVAL 14 DAY AND NOW() - INTERVAL 7 DAY")
+        for val in db.cursor.fetchall():
+            db.cursor.execute("DELETE FROM userNotes WHERE noteID=%s", (val[0]))
+            db.cursor.execute("DELETE FROM notes WHERE id=%s", (val[0]))
+        db.hubdb.commit()
+        db.cursor.execute("SELECT name, message, dateCreated, id FROM notes WHERE dateCreated BETWEEN NOW() - INTERVAL 7 DAY AND NOW()")
         for val in db.cursor.fetchall():
             notedb = StringVar()
             notedb.set(val[1])
             messageAuthor = StringVar()
             messageAuthor.set(val[0])
+            dateOfNote = StringVar()
+            dateOfNote.set(val[2])
             noteLabel = Label(self.notesFrame, textvariable=notedb)
             noteLabel.grid(column=0)
             authorLabel = Label(self.notesFrame, textvariable=messageAuthor)
             authorLabel.grid(column=1)
+            dateLabel = Label(self.notesFrame, textvariable=dateOfNote)
+            dateLabel.grid(column=1)
+            db.cursor.execute("UPDATE userNotes SET unread=0 WHERE userID=%s AND noteID=%s", (self.userID, val[3]));
+        db.hubdb.commit()
         db.disconnect()
 
     def grocery(self):
@@ -187,7 +212,7 @@ class FR_grocery:
         for element in self.listFrame.winfo_children():
             element.destroy()
         db = homehubdb.Db_manager()
-        db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
+        db.cursor.execute("SELECT item FROM groceryList WHERE userID=%s", (self.userID))
         cntr = 0;
         for val in db.cursor.fetchall():
             dbGroceryItem = StringVar()
@@ -214,7 +239,7 @@ class FR_grocery:
 
     def addGroceryItem(self):
         db = homehubdb.Db_manager()
-        db.cursor.execute("INSERT INTO GroceryList(id,item) VALUES(%s, %s)", (self.userID, self.entry_1.get()))
+        db.cursor.execute("INSERT INTO groceryList(userID,item) VALUES(%s, %s)", (self.userID, self.entry_1.get()))
         db.hubdb.commit()
         db.disconnect()
         self.entry_1.delete(0, 'end')
@@ -222,14 +247,14 @@ class FR_grocery:
 
     def deleteGroceryItem(self, itemToDel):
         db = homehubdb.Db_manager()
-        db.cursor.execute("DELETE FROM GroceryList WHERE item=%s", (itemToDel))
+        db.cursor.execute("DELETE FROM groceryList WHERE item=%s AND userID=%s", (itemToDel, self.userID))
         db.hubdb.commit()
         db.disconnect()
         self.populateGroceryList()
 
     def deleteGroceryList(self):
         db = homehubdb.Db_manager()
-        db.cursor.execute("DELETE FROM GroceryList WHERE id=%s", (self.userID))
+        db.cursor.execute("DELETE FROM groceryList WHERE userID=%s", (self.userID))
         db.hubdb.commit()
         db.disconnect()
         self.populateGroceryList()
@@ -238,7 +263,7 @@ class FR_grocery:
         global em
         emailList = []
         db = homehubdb.Db_manager()
-        db.cursor.execute("SELECT item FROM GroceryList WHERE id=%s", (self.userID))
+        db.cursor.execute("SELECT item FROM groceryList WHERE userID=%s", (self.userID))
         for val in db.cursor.fetchall():
             emailList.append(val[0])
         emailRecip = str()
@@ -266,7 +291,6 @@ class FR_settings():
         self.accountInfoFrame = Frame(root)
         self.accountInfoFrame.grid()
         self.populateAccountInfo()
-        #self.populateUI()
 
     def populateAccountInfo(self):
         for element in self.accountInfoFrame.winfo_children():
@@ -276,7 +300,7 @@ class FR_settings():
         for val in db.cursor.fetchall():
             session_id = val[0]		#INT
             session_name = val[1]	#str
-            session_password = val[2]	#str
+            session_password = val[2]	#INT
             session_email = val[3]	#str
             session_phone = val[4]	#str
         db.disconnect()
@@ -299,7 +323,7 @@ class FR_settings():
     def createInfoPrompt(self):
         self.infoPopup = tkinter.Tk()
         self.infoPopup.wm_title("Update My Information")
-        passInfoLabel = Label(self.infoPopup, text="PASSWORDS MUST BE 4 DIGIT NUMBER COMBOS \n IF YOU DID SOMETHING ELSE TALK TO IAN \n IM WORKING ON CHANGING THAT")
+        passInfoLabel = Label(self.infoPopup, text="PASSWORDS MUST BE 4 DIGIT NUMBER COMBOS \n MUST CHANGE DB VALUE IF YOU ADDED SOMETHING ELSE")
         passInfoLabel.grid(row=0, column=0)
         passPrompt = Label(self.infoPopup, text="Update Password")
         passPrompt.grid(row=1, column=0)
@@ -320,7 +344,7 @@ class FR_settings():
         db = homehubdb.Db_manager()
 
         if len(self.passEntry.get()) != 0:
-            executeStmt = str(self.passEntry.get())
+            executeStmt = int(str(self.passEntry.get()))
             db.cursor.execute("UPDATE users SET password=%s WHERE name=%s", (executeStmt, self.username))
         if len(self.emailEntry.get()) != 0:
             executeStmt = str(self.emailEntry.get())
