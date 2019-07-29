@@ -7,7 +7,7 @@ class EmailManager:
         self.msg = "This is the default message, home hub be bugging, yo."
         print("Email Manager initialized")
 
-    def setMsg(self, msgToBeSet): #msgtobeset is a list, python cant do different signature functions because it is stupid
+    def setMsg(self, msgToBeSet): #msgtobeset is a list
         myMsg = str()
         for val in msgToBeSet:
             myMsg += val + "\n"
@@ -16,7 +16,7 @@ class EmailManager:
 
     def sendMsg(self, emailRecipient):
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        server.login("homehub6270@gmail.com", "gogogogo1")
+        server.login("homehub6270@gmail.com", "password")   #second argument is password for email account
         try:
             server.sendmail(
                  self.fromAddress,
