@@ -10,13 +10,13 @@ class EmailManager:
     def setMsg(self, msgToBeSet): #msgtobeset is a list
         myMsg = str()
         for val in msgToBeSet:
-            myMsg += val + "\n"
+            myMsg += val
         self.msg = myMsg
         print("Email Message Set")
 
     def sendMsg(self, emailRecipient):
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        server.login("homehub6270@gmail.com", "password")   #second argument is password for email account
+        server.login("homehub6270@gmail.com", "gogogogo1")   #second argument is password for email account
         try:
             server.sendmail(
                  self.fromAddress,

@@ -1,12 +1,15 @@
+#TODO: Fix email notifications for bills
 #TODO: Set subject of emails
 #TODO: limit input boxes for password settings
 #TODO: Make Pizza Purchase Tracker (have it ask each person who bought pizza last to confirm)
 #TODO: Have notes frame scroll, takes a bit of tinkering with tkinter to do this
 import tkinter
+import datetime
 from tkinter import *
 from tkinter import messagebox
 import homehubdb
 import hh_email
+import hh_date_selector
 
 #GLOBALS
 em = hh_email.EmailManager()
@@ -44,7 +47,7 @@ class FR_login:
             # V cursor.execute returns an int of affected rows V
             unreadCheck = db.cursor.execute("SELECT noteID, unread FROM userNotes WHERE userID=%s AND unread=1", (val[1]))
             if(unreadCheck > 0):
-                unreadMessages = Label(self.usernameFrame, text="*NEW NOTES*")
+                unreadMessages = Label(self.usernameFrame, text="!")
                 unreadMessages.config(width=16,font=("Helvetica", 16, "bold"))
                 unreadMessages.grid(row=loginUserCounter, column=1)
             loginUserCounter = loginUserCounter + 1
@@ -129,7 +132,7 @@ class FR_home:
         self.settingsButton.config(height=2,width=12)
         self.settingsButton.grid(row=1,column=2)
 
-        self.billsButton = Button(self.menuFrame, text="Bill Manager")
+        self.billsButton = Button(self.menuFrame, text="Bill Manager", command=self.billManager)
         self.billsButton.config(height=2,width=12)
         self.billsButton.grid(row=1,column=3)
 
@@ -211,6 +214,13 @@ class FR_home:
             element.destroy()
         mainApp = FR_settings(self.username)
 
+    def billManager(self):
+        global mainApp
+        global root
+        for element in root.winfo_children():
+            element.destroy()
+        mainApp = FR_billManager(self.username)
+
 class FR_grocery:
     def __init__(self, username):
         global root
@@ -240,14 +250,18 @@ class FR_grocery:
         db = homehubdb.Db_manager()
         db.cursor.execute("SELECT item FROM groceryList WHERE userID=%s", (self.userID))
         cntr = 0;
+        colCntr = 0;
         for val in db.cursor.fetchall():
             dbGroceryItem = StringVar()
             dbGroceryItem.set(val[0])
             groceryItem = Label(self.listFrame, textvariable=dbGroceryItem)
-            groceryItem.grid(row=cntr,column=0)
             deleteItemButton = Button(self.listFrame, text="Delete", 
                 command=lambda itemToDel=dbGroceryItem.get(): self.deleteGroceryItem(itemToDel))
-            deleteItemButton.grid(row=cntr,column=1)
+            if(cntr > 10):
+                cntr = 0;
+                colCntr = colCntr + 2;
+            groceryItem.grid(row=cntr,column=colCntr)
+            deleteItemButton.grid(row=cntr,column=colCntr + 1)
             cntr = cntr + 1;
         db.disconnect()
 
@@ -295,17 +309,229 @@ class FR_grocery:
 
     def emailList(self):
         global em
-        emailList = []
+        groceryString = str()
         db = homehubdb.Db_manager()
         db.cursor.execute("SELECT item FROM groceryList WHERE userID=%s", (self.userID))
         for val in db.cursor.fetchall():
-            emailList.append(val[0])
+            groceryString += '\n' + val[0]
         emailRecip = str()
         db.cursor.execute("SELECT email FROM users WHERE id=%s", (self.userID))
         for val in db.cursor.fetchall():
             emailRecip = val[0]
-        em.setMsg(emailList)
+        em.setMsg(groceryString)
         em.sendMsg(emailRecip)
+        db.disconnect()
+
+    def backToHome(self):
+        global mainApp
+        global root
+        for element in root.winfo_children():
+            element.destroy()
+        mainApp = FR_home(self.username)
+
+class FR_billManager:
+    def __init__(self, username):
+        global root
+        root.title("Bill Manager")
+        self.billRoot = Frame(root)
+        self.listFrame = Frame(root)
+        self.entryFrame = Frame(root)
+        self.billRoot.pack(side=TOP)
+        self.listFrame.pack()
+        self.entryFrame.pack()
+        self.username = username
+        db = homehubdb.Db_manager()
+        db.cursor.execute("SELECT id FROM users WHERE name=%s", (self.username))
+        dbReturn = db.cursor.fetchall()
+        for val in dbReturn:
+            self.userID = val[0]
+        db.disconnect()
+        greeting = Label(self.billRoot, text = "{}'s Bill Manager".format(self.username))
+        greeting.config(font=("Times",16,"bold"))
+        greeting.grid()
+        self.populateBillList()
+        self.populateUI()
+
+    def populateBillList(self):
+        for element in self.listFrame.winfo_children():
+            element.destroy()
+        db = homehubdb.Db_manager()
+        db.cursor.execute("SELECT id, name, description, totalDue, dueDate FROM bills WHERE userID=%s", (self.userID))
+        cntr = 0;
+        for val in db.cursor.fetchall():
+            dbBillName = StringVar()
+            dbBillName.set(val[1] + '\n' + str(val[3]))
+            billLabel = Label(self.listFrame, textvariable=dbBillName)
+            billLabel.grid(row=cntr,column=0)
+            billLabel.config(font=("Times", 12, "bold"))
+            cntr += 1
+            dbBillDate = StringVar()
+            dbBillDate.set(val[4])
+            billDateLabel = Label(self.listFrame, textvariable=dbBillDate)
+            billDateLabel.grid(row=cntr,column=0)
+            billDateLabel.config(font=("Times", 10, "italic"))
+            cntr += 1
+            dbBillDesc = StringVar()
+            dbBillDesc.set(val[2])
+            billDescLabel = Label(self.listFrame, textvariable=dbBillDesc)
+            billDescLabel.grid(row=cntr,column=0)
+            billDescLabel.config(font=("Times", 10, "italic"))
+            deleteBillButton = Button(self.listFrame, text="Delete", 
+                command = lambda IDToDel=val[0] : self.deleteBill(IDToDel))
+            deleteBillButton.grid(row=cntr - 2,column=1)
+            cntr += 1
+        db.disconnect()
+
+    def populateUI(self):
+        self.entry_1 = Entry(self.entryFrame)
+        self.entry_1.grid(row=0,column=0)
+        self.entry_1.insert(0, 'Title')
+        self.entry_2 = Entry(self.entryFrame)
+        self.entry_2.grid(row=0,column=1)
+        self.entry_2.insert(0, 'Description')
+        self.entry_3 = Entry(self.entryFrame)
+        self.entry_3.grid(row=0,column=2)
+        self.entry_3.insert(0, 'Total Due')
+        self.entry_4 = hh_date_selector.dateSelector(self.entryFrame,0,3)
+
+        self.entry_button_1 = Button(self.entryFrame, text="Add Bill", command = self.addBill)
+        self.entry_button_1.config(height=1,width=8)
+        self.entry_button_1.grid(row=0,column=4)
+
+        self.delete_list_button = Button(self.entryFrame, text="Delete All Bills", command = self.deleteBillList)
+        self.delete_list_button.config(height=1,width=12)
+        self.delete_list_button.grid(row=1,column=1)
+
+        self.email_list_button = Button(self.entryFrame, text="Send Bill Notices", command = self.emailBillList)
+        self.email_list_button.config(height=1,width=12)
+        self.email_list_button.grid(row=1,column=2)
+
+        self.back_button = Button(self.entryFrame, text="Home", command = self.backToHome)
+        self.back_button.config(height=1,width=8)
+        self.back_button.grid(row=1,column=3)
+
+    def addBill(self):
+        db = homehubdb.Db_manager()
+        db.cursor.execute("INSERT INTO bills(name,description,totalDue,userID,dueDate) VALUES(%s, %s, %s, %s, %s)", (self.entry_1.get(), self.entry_2.get(), self.entry_3.get(), self.userID, datetime.date(2019, self.entry_4.month, int(self.entry_4.dayDDDefMsg.get()))))
+        db.hubdb.commit()
+        db.disconnect()
+        self.entry_1.delete(0, 'end')
+        self.entry_2.delete(0, 'end')
+        self.entry_3.delete(0, 'end')
+        self.populateBillList()
+
+    def deleteBill(self, IDToDel):
+        db = homehubdb.Db_manager()
+        db.cursor.execute("DELETE FROM bills WHERE id=%s AND userID=%s", (IDToDel, self.userID))
+        db.hubdb.commit()
+        db.disconnect()
+        self.populateBillList()
+
+    def deleteBillList(self):
+        db = homehubdb.Db_manager()
+        db.cursor.execute("DELETE FROM bills WHERE userID=%s", (self.userID))
+        db.hubdb.commit()
+        db.disconnect()
+        self.populateBillList()
+
+    def emailBillList(self):
+        global em
+        db = homehubdb.Db_manager()
+        db.cursor.execute("SELECT email FROM users")
+        dbReturn1 = db.cursor.fetchall()
+        for val in dbReturn1:
+            db.cursor.execute("SELECT name, description, totalDue, dueDate FROM bills WHERE userID=%s", (self.userID))
+            dbReturn2 = db.cursor.fetchall()
+            strToEmail = ""
+            for innerVal in dbReturn2:
+                strToEmail += strToEmail + "\n" + str(innerVal[0]) + " " + str(innerVal[1]) + " " + str(innerVal[2]) + " " + str(innerVal[3])
+            em.setMsg(strToEmail)
+            em.sendMsg(val[0])
+            print("Sending email to {}.".format(val[0]));
+            #print("Val0:{} \n Val1:{} \n Val2:{} \n Val3:{} \n Val4:{}".format(val[0], val[1], val[2], val[3], val[4]));
+        db.disconnect()
+
+    '''
+    def notifyBillSubscribers(self):
+        self.noticePopup = tkinter.Tk()
+        self.noticePopup.wm_title("Send Bill Notices")
+        self.userSelectFrame = Frame(self.noticePopup)
+        self.noticeMethodFrame = Frame(self.noticePopup)
+        self.userSelectFrame.pack(side=TOP)
+        self.noticeMethodFrame.pack()
+        billPromptLabel = Label(self.userSelectFrame, text="Select Bills")
+        billPromptLabel.grid(row=0, column=0)
+        self.billsToNotify = []
+        db = homehubdb.Db_manager()
+        db.cursor.execute("SELECT * FROM bills WHERE userID = %s", (self.userID))
+        self.billButtons = []
+        billButtonId = 0;
+        for val in db.cursor.fetchall():
+            self.billButtons.append(Button(self.userSelectFrame, text=val[1], command = lambda idVal = val[0], listVal = self.billsToNotify, buttonId = billButtonId : self.selectBillForNotification(idVal, listVal, buttonId)))
+            self.billButtons[billButtonId].grid(row = 1, column = billButtonId)
+            billButtonId += 1
+        noticePromptLabel = Label(self.userSelectFrame, text="Select Users to Notify")
+        noticePromptLabel.grid(row=2, column=0)
+        self.usersToNotify = []
+        db.cursor.execute("SELECT name, id FROM users")
+        self.userButtons = []
+        userButtonId = 0;
+        for val in db.cursor.fetchall():
+            self.userButtons.append(Button(self.userSelectFrame, text=val[0], command = lambda idVal = val[1], listVal = self.usersToNotify, buttonId = userButtonId : self.selectUserForNotification(idVal, listVal, buttonId)))
+            self.userButtons[userButtonId].grid(row = 3, column = userButtonId)
+            userButtonId += 1
+        db.disconnect()
+        emailPrompt = Button(self.noticeMethodFrame, text="Email Notices", command = lambda myBillList = self.billsToNotify, myUserList = self.usersToNotify : self.emailBillList(myBillList, myUserList))
+        emailPrompt.grid(row=1, column=0)
+        smsPrompt = Button(self.noticeMethodFrame, text="SMS Notices", command = lambda myBillsList = self.billsToNotify, myUserList = self.usersToNotify : self.smsBillList(myBillsList, myUserList))
+        smsPrompt.grid(row=1, column=1)
+
+    def selectUserForNotification(self, userID, listOfUsers, buttonId):
+        if userID not in listOfUsers:
+            listOfUsers.append(userID)
+            self.userButtons[buttonId].config(relief = 'sunken')
+        elif userID in listOfUsers:
+            listOfUsers.remove(userID)
+            self.userButtons[buttonId].config(relief = 'raised')
+
+    def selectBillForNotification(self, billID, listOfBills, buttonId):
+        if billID not in listOfBills:
+            listOfBills.append(billID)
+            self.billButtons[buttonId].config(relief = 'sunken')
+        elif billID in listOfBills:
+            listOfBills.remove(billID)
+            self.billButtons[buttonId].config(relief = 'raised')
+
+    def emailBillList(self, listOfBills, listOfSubs):
+        global em
+        db = homehubdb.Db_manager()
+        billList = []
+        for listOfBillsItr in range(len(listOfBills)):
+            print(len(listOfBills))
+            print(listOfBillsItr)
+            db.cursor.execute("SELECT name, description, totalDue FROM bills WHERE id=%s", (listOfBills[listOfBillsItr]))
+            for val in db.cursor.fetchall():
+                billList.append(val[0] + "[" + val[1] + "]: >> " + str(val[2]) + " <<" + "\n")
+        db.cursor.execute("SELECT id, name, email FROM users")
+        for value in db.cursor.fetchall():
+            if value[0] in listOfSubs:
+                em.setMsg(billList)
+                em.sendMsg(value[2])
+        db.disconnect()
+        '''
+    def smsBillList(self, listOfBills, listOfSubs):
+        global em
+        emailList = []
+        db = homehubdb.Db_manager()
+#        db.cursor.execute("SELECT item FROM groceryList WHERE userID=%s", (self.userID))
+#        for val in db.cursor.fetchall():
+#            emailList.append(val[0])
+#        emailRecip = str()
+#        db.cursor.execute("SELECT email FROM users WHERE id=%s", (self.userID))
+#        for val in db.cursor.fetchall():
+#            emailRecip = val[0]
+#        em.setMsg(emailList)
+#        em.sendMsg(emailRecip)
         db.disconnect()
 
     def backToHome(self):
