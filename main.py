@@ -257,7 +257,7 @@ class FR_grocery:
             groceryItem = Label(self.listFrame, textvariable=dbGroceryItem)
             deleteItemButton = Button(self.listFrame, text="Delete", 
                 command=lambda itemToDel=dbGroceryItem.get(): self.deleteGroceryItem(itemToDel))
-            if(cntr > 10):
+            if(cntr > 9):
                 cntr = 0;
                 colCntr = colCntr + 2;
             groceryItem.grid(row=cntr,column=colCntr)
