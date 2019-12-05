@@ -10,6 +10,7 @@ from tkinter import messagebox
 import homehubdb
 import hh_email
 import hh_date_selector
+from PIL import Image, ImageTk
 
 #GLOBALS
 em = hh_email.EmailManager()
@@ -20,6 +21,7 @@ class FR_login:
     def __init__(self):
         global root
         root.title("Login")
+        self.holiday = True;
         self.usernameFrame = Frame(root)
         self.passwFrame = Frame(root)
         self.keypadFrame = Frame(root)
@@ -55,6 +57,8 @@ class FR_login:
         shownAttemptedPassw = Label(self.passwFrame, textvariable = self.shownAttemptedPassw_var)
         self.shownAttemptedPassw_var.set(self.attemptedPassword)
         shownAttemptedPassw.grid()
+        if(self.holiday):
+            self.holidayMode();
 
     def userSelect(self, usernameClicked):
         global root
@@ -94,6 +98,14 @@ class FR_login:
             else:
                 self.shownAttemptedPassw_var.set("Wrong... Try Again")
             self.attemptedPassword = str()
+
+    def holidayMode(self):
+        load = Image.open("xmas.png");
+        #im.show();
+        render = ImageTk.PhotoImage(load);
+        im = Label(root, image=render);
+        im.image = render;
+        im.place(x=0, y=0);
 
 class FR_home:
     def __init__(self, username):
