@@ -1,4 +1,5 @@
 # homehub
+# NOTE: This version of HomeHub is deprecated, and being rebuilt with different technologies.
 Home Hub is a home life management system that I am currently developing
 Management features so far include:
 - grocery list management
